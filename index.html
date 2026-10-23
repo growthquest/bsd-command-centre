@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>BSD Command Centre</title>
+<meta name="description" content="Ammeil's priorities and client portfolio, Blue Sense Digital.">
+<link rel="icon" href="assets/favicon-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+<script>(function(){try{var t=localStorage.getItem('bsd-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="logo" href="#/priorities" aria-label="Blue Sense Digital, home"></a>
+    <nav class="nav" id="nav" aria-label="Sections" hidden>
+      <a href="#/priorities" data-view="priorities">Priorities</a>
+      <a href="#/clients" data-view="clients">Clients</a>
+    </nav>
+    <span class="sp"></span>
+    <div class="whoami" id="whoami" hidden><div class="n" id="whoEmail"></div><div class="r">Blue Sense Digital</div></div>
+    <button class="iconbtn" id="themeBtn" type="button" aria-label="Switch theme"></button>
+    <button class="signout" id="signOut" type="button" hidden>Sign out</button>
+  </div>
+</header>
+
+<main class="wrap" id="app">
+  <div class="boot" aria-live="polite">Loading</div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
