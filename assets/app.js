@@ -55,9 +55,12 @@
   const extLink = (href, cls, ...kids) => safeUrl(href) ? h("a", { class: cls, href, target: "_blank", rel: "noopener noreferrer" }, ...kids) : h("span", { class: cls }, ...kids);
 
   let toastTimer = null;
-  function toast(msg) {
-    const t = $("toast"); t.textContent = msg; t.classList.add("on");
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), 2600);
+  function toast(msg, action) {
+    const t = $("toast");
+    t.replaceChildren(h("span", {}, msg), action ? h("button", { type: "button", onclick: () => { t.classList.remove("on"); action.fn(); } }, action.label) : null);
+    t.classList.toggle("has-action", !!action);
+    t.classList.add("on");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), action ? 5000 : 2600);
   }
 
   // ── Dates ─────────────────────────────────────────────────────────
@@ -95,7 +98,7 @@
   const state = {
     authReady: false, session: null, allowed: false, loaded: false,
     tasks: [], clients: [], updates: [],
-    filter: "open", armedDelete: null, loginSent: null, loginError: null
+    filter: "open", justDone: new Set(), armedDelete: null, loginSent: null, loginError: null
   };
   try { state.filter = localStorage.getItem("bsd-filter") || "open"; } catch (e) {}
   let channel = null;
@@ -120,7 +123,7 @@
     if (parts[0] === "clients") return { view: "clients" };
     return { view: "priorities" };
   }
-  window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); });
+  window.addEventListener("hashchange", () => { state.justDone.clear(); render(); window.scrollTo(0, 0); });
 
   // ── Data ──────────────────────────────────────────────────────────
   async function loadTasks() {
@@ -178,14 +181,22 @@
 
   // ── Task writes ───────────────────────────────────────────────────
   const writeError = (e) => (e && /row-level security|permission/i.test(e.message || "") ? "This account can view but not change tasks." : "That did not save. Check your connection and try again.");
-  async function patchTask(t, patch, okMsg) {
+  async function patchTask(t, patch, okMsg, action) {
     const before = { ...t };
     Object.assign(t, patch); render();
     const { error } = await sb.from("tasks").update(patch).eq("id", t.id);
-    if (error) { Object.assign(t, before); render(); toast(writeError(error)); }
-    else if (okMsg) toast(okMsg);
+    if (error) { Object.assign(t, before); state.justDone.delete(t.id); render(); toast(writeError(error)); }
+    else if (okMsg) toast(okMsg, action);
   }
-  const toggleDone = (t) => patchTask(t, { done: !t.done, done_at: t.done ? null : new Date().toISOString() }, t.done ? "Moved back to open" : "Done");
+  // A task ticked off stays visible (struck through) in its list until the filter or page changes.
+  function toggleDone(t) {
+    const done = !t.done;
+    if (done) state.justDone.add(t.id); else state.justDone.delete(t.id);
+    const live = () => state.tasks.find((x) => x.id === t.id) || t;
+    patchTask(t, { done, done_at: done ? new Date().toISOString() : null },
+      done ? "Marked done" : "Moved back to open",
+      done ? { label: "Undo", fn: () => toggleDone(live()) } : null);
+  }
   function toggleFocus(t) {
     if (!t.focus && state.tasks.filter((x) => x.focus && !x.done).length >= MAX_FOCUS) { toast("Three tasks are already in focus. Unstar one first."); return; }
     patchTask(t, { focus: !t.focus }, t.focus ? "Removed from focus" : "Added to focus");
@@ -337,11 +348,11 @@
     const tabs = h("div", { class: "tabs", role: "group", "aria-label": "Show" },
       [["open", "Open"], ["all", "All"], ["done", "Done"]].map(([f, l]) =>
         h("button", { class: "tab", type: "button", "aria-pressed": state.filter === f ? "true" : "false", onclick: () => {
-          state.filter = f; try { localStorage.setItem("bsd-filter", f); } catch (e) {} render();
+          state.filter = f; state.justDone.clear(); try { localStorage.setItem("bsd-filter", f); } catch (e) {} render();
         } }, l)));
 
     // Groups
-    const vis = tasks.filter((t) => state.filter === "all" ? true : state.filter === "done" ? t.done : !t.done);
+    const vis = tasks.filter((t) => state.filter === "all" ? true : state.filter === "done" ? t.done : (!t.done || state.justDone.has(t.id)));
     const known = new Set(TIERS.map((t) => t.id));
     const groups = TIERS.concat(vis.some((t) => !known.has(t.tier)) ? [{ id: "__other", name: "Other", sub: "" }] : [])
       .map((tr) => ({ tr, items: vis.filter((t) => tr.id === "__other" ? !known.has(t.tier) : t.tier === tr.id).sort(cmp) }))
