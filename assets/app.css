@@ -148,6 +148,12 @@ section.blk { padding-top: 34px; }
 .row .side { display: flex; align-items: center; gap: 6px; flex: none; padding-top: 1px; }
 .row.is-done .t { text-decoration: line-through; color: var(--ink-mute); }
 .row.is-done .tlinks, .row.is-done .nt { opacity: .6; }
+.row.sub { padding: 10px 16px 10px 50px; border-top-style: dashed; }
+.row.sub .t { font-size: 13.5px; }
+.row.sub .check { width: 17px; height: 17px; }
+.subcount { font-size: 12px; font-weight: 600; color: var(--ink-mute); padding: 0 4px; }
+.subadd { display: flex; gap: 8px; padding: 8px 16px 12px 50px; border-top: 1px dashed var(--line); }
+.subadd .field { flex: 1; min-width: 0; }
 .check { appearance: none; -webkit-appearance: none; margin: 1px 0 0; width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1.5px solid var(--line-strong); background: var(--card); cursor: pointer; display: grid; place-items: center; transition: background .15s, border-color .15s; }
 .check:hover { border-color: var(--accent); }
 .check:checked { background: var(--green); border-color: var(--green); }

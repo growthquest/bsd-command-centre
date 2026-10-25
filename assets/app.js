@@ -98,7 +98,7 @@
   const state = {
     authReady: false, session: null, allowed: false, loaded: false,
     tasks: [], clients: [], updates: [],
-    filter: "open", justDone: new Set(), armedDelete: null, loginSent: null, loginError: null
+    filter: "open", justDone: new Set(), armedDelete: null, addingSub: null, loginSent: null, loginError: null
   };
   try { state.filter = localStorage.getItem("bsd-filter") || "open"; } catch (e) {}
   let channel = null;
@@ -203,7 +203,7 @@
   }
   async function removeTask(t) {
     const prev = state.tasks;
-    state.tasks = prev.filter((x) => x.id !== t.id); render();
+    state.tasks = prev.filter((x) => x.id !== t.id && x.parent_id !== t.id); render();
     const { error } = await sb.from("tasks").delete().eq("id", t.id);
     if (error) { state.tasks = prev; render(); toast(writeError(error)); } else toast("Task deleted");
   }
@@ -214,6 +214,15 @@
     if (!state.tasks.some((x) => x.id === data.id)) state.tasks.push(data);
     ["addTitle", "addDue"].forEach((id) => { const el = $(id); if (el) el.value = ""; });
     render(); toast("Added to " + tierName(tier));
+    return true;
+  }
+  async function addSubtask(parent, title) {
+    const row = { title, tier: parent.tier, due: null, note: "", links: [], done: false, focus: false, sort: Date.now(), parent_id: parent.id };
+    const { data, error } = await sb.from("tasks").insert(row).select().single();
+    if (error) { toast(writeError(error)); return false; }
+    if (!state.tasks.some((x) => x.id === data.id)) state.tasks.push(data);
+    const el = $("subTitle"); if (el) el.value = "";
+    render(); toast("Sub-task added");
     return true;
   }
 
@@ -249,18 +258,41 @@
       setTimeout(() => { if (state.armedDelete === t.id) { state.armedDelete = null; render(); } }, 3500);
     } }, icon("trash"));
   }
-  function taskRow(t) {
+  // Sub-tasks hang off a main task through parent_id; one whose parent is gone shows as a main task.
+  const isTop = (t) => !t.parent_id || !state.tasks.some((x) => x.id === t.parent_id);
+  const subsOf = (t) => state.tasks.filter((x) => x.parent_id === t.id).sort((a, b) => (a.sort || 0) - (b.sort || 0));
+  const subCount = (t) => { const s = subsOf(t); return s.length ? s.filter((x) => x.done).length + "/" + s.length : null; };
+  function subBtn(t) {
+    const open = state.addingSub === t.id;
+    return h("button", { class: "mini", type: "button", "aria-expanded": open ? "true" : "false", "aria-label": "Add a sub-task", title: "Add a sub-task",
+      onclick: () => { state.addingSub = open ? null : t.id; render(); const el = $("subTitle"); if (el) el.focus(); } }, icon("plus"));
+  }
+  function subForm(t) {
+    const input = h("input", { class: "field", type: "text", id: "subTitle", placeholder: "Add a sub-task", "aria-label": "Sub-task", maxlength: "240", autocomplete: "off",
+      onkeydown: (e) => { if (e.key === "Escape") { state.addingSub = null; render(); } } });
+    return h("form", { class: "subadd", autocomplete: "off", onsubmit: async (e) => {
+      e.preventDefault();
+      const v = input.value.trim(); if (!v) return;
+      await addSubtask(t, v);
+    } }, input, h("button", { class: "ghost", type: "submit" }, "Add"));
+  }
+  function taskRow(t, sub) {
     const cid = "chk-" + t.id;
     const cb = h("input", { class: "check", type: "checkbox", id: cid, "aria-label": "Mark done: " + t.title, onchange: () => toggleDone(t) });
     cb.checked = !!t.done;
-    return h("div", { class: "row" + (t.done ? " is-done" : "") },
+    const count = sub ? null : subCount(t);
+    return h("div", { class: "row" + (sub ? " sub" : "") + (t.done ? " is-done" : "") },
       cb,
       h("div", { class: "body" }, h("label", { class: "t", for: cid }, t.title), t.note ? h("div", { class: "nt" }, t.note) : null, taskLinks(t)),
-      h("div", { class: "side" }, duePill(t), h("span", { class: "sp" }), starBtn(t), delBtn(t)));
+      h("div", { class: "side" }, count ? h("span", { class: "subcount num", title: "Sub-tasks done" }, count) : null, duePill(t), h("span", { class: "sp" }),
+        sub ? null : subBtn(t), sub ? null : starBtn(t), delBtn(t)));
   }
+  // A main task with its sub-tasks (all of them, ticked or not) and the add form when open.
+  const taskItem = (t) => [taskRow(t), subsOf(t).map((s) => taskRow(s, true)), state.addingSub === t.id ? subForm(t) : null];
   const tasksForClient = (c) => {
     const n = (c.name || "").toLowerCase();
-    return n ? state.tasks.filter((t) => ((t.title || "") + " " + (t.note || "")).toLowerCase().includes(n)) : [];
+    const hit = (t) => ((t.title || "") + " " + (t.note || "")).toLowerCase().includes(n);
+    return n ? state.tasks.filter((t) => isTop(t) && (hit(t) || subsOf(t).some(hit))) : [];
   };
 
   // ── Views ─────────────────────────────────────────────────────────
@@ -304,7 +336,7 @@
   }
 
   function viewPriorities() {
-    const tasks = state.tasks;
+    const tasks = state.tasks.filter(isTop);
     const open = tasks.filter((t) => !t.done);
     const today = todayIso();
     const over = open.filter((t) => t.due && t.due < today).length;
@@ -325,6 +357,7 @@
       h("div", { class: "t" }, t.title),
       t.note ? h("div", { class: "nt" }, t.note) : null,
       taskLinks(t),
+      subCount(t) ? h("div", { class: "nt" }, subCount(t) + " sub-tasks done") : null,
       h("div", { class: "foot" }, duePill(t), h("button", { class: "ghost done-btn", type: "button", onclick: () => toggleDone(t) }, "Mark done"))));
     if (!focus.length) cards.push(h("div", { class: "slot" }, h("div", { class: "st" }, "All clear"), h("div", { class: "sd" }, "No open tasks. Add one below.")));
     else if (!auto && focus.length < MAX_FOCUS) {
@@ -360,7 +393,7 @@
       .map(({ tr, items }) => h("section", { class: "blk" },
         h("div", { class: "blk-h" }, h("h3", {}, tr.name), tr.sub ? h("span", { class: "sub" }, tr.sub) : null,
           h("span", { class: "count num" }, state.filter === "done" ? items.length + " done" : items.filter((t) => !t.done).length + " open")),
-        h("div", { class: "list" }, items.map(taskRow))));
+        h("div", { class: "list" }, items.map(taskItem))));
     if (!groups.length) {
       const msg = state.filter === "done" ? "Nothing ticked off yet." : "No open tasks. Add one above.";
       groups.push(h("section", { class: "blk" }, h("div", { class: "list" }, h("div", { class: "empty" }, msg))));
@@ -431,7 +464,7 @@
         h("div", { class: "cmeta" }, h("div", { class: "t1" }, c.next_call.title), h("div", { class: "t2" }, c.next_call.when)),
         safeUrl(c.next_call.join_url) ? h("a", { class: "btn", href: c.next_call.join_url, target: "_blank", rel: "noopener noreferrer" }, icon("meet"), "Join call") : null) : null,
       c.snapshot ? blk("Snapshot", h("p", { class: "oneliner" }, c.snapshot)) : null,
-      ts.length ? blk("Your tasks", h("div", { class: "list" }, ts.map(taskRow))) : null,
+      ts.length ? blk("Your tasks", h("div", { class: "list" }, ts.map(taskItem))) : null,
       blk("Latest updates", ups.length
         ? h("div", { class: "feed" }, ups.map((u) => h("div", { class: "upd" },
             h("div", { class: "upd-top" }, h("span", { class: "upd-date" }, u.date_label || ""), u.channel ? h("span", { class: "upd-chan" }, u.channel) : null),
@@ -475,7 +508,7 @@
     // Keep the add-task draft and focus across re-renders.
     const active = document.activeElement && document.activeElement.id;
     const draft = {};
-    ["addTitle", "addTier", "addDue", "loginEmail"].forEach((id) => { const el = $(id); if (el) draft[id] = el.value; });
+    ["addTitle", "addTier", "addDue", "subTitle", "loginEmail"].forEach((id) => { const el = $(id); if (el) draft[id] = el.value; });
     app.replaceChildren(...[content].flat(Infinity).filter(Boolean));
     Object.entries(draft).forEach(([id, v]) => { const el = $(id); if (el) el.value = v; });
     const at = $("addTitle"); if (at) { const b = at.form && at.form.querySelector(".btn"); if (b) b.disabled = !at.value.trim(); }
