@@ -95,6 +95,9 @@ h1 b { font-weight: 700; color: var(--accent); }
 .lede { color: var(--ink-soft); font-size: 16px; margin: 10px 0 0; max-width: 62ch; }
 .ledger { display: flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 12px; margin-top: 24px; background: var(--card); overflow: hidden; }
 .ledger .cell { flex: 1 1 140px; padding: 16px 18px; border-right: 1px solid var(--line); margin-right: -1px; }
+.ledger button.cell { font: inherit; color: inherit; text-align: left; background: transparent; border: 0; border-right: 1px solid var(--line); cursor: pointer; transition: background .15s; }
+.ledger button.cell:hover { background: var(--card-hover); }
+.ledger button.cell:hover .label { color: var(--accent); }
 .ledger .v { font-weight: 300; font-size: 28px; line-height: 1; letter-spacing: -0.03em; margin-top: 8px; }
 .ledger .v.bad { color: var(--red); }
 .ledger .v.warn { color: var(--amber); }

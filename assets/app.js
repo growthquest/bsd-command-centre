@@ -342,9 +342,12 @@
     const over = open.filter((t) => t.due && t.due < today).length;
     const dueToday = open.filter((t) => t.due === today).length;
 
+    const setFilter = (f) => { state.filter = f; state.justDone.clear(); try { localStorage.setItem("bsd-filter", f); } catch (e) {} render(); };
     const ledger = h("div", { class: "ledger" },
       h("div", { class: "cell" }, h("div", { class: "label" }, "Open"), h("div", { class: "v num" }, open.length)),
-      h("div", { class: "cell" }, h("div", { class: "label" }, "Overdue"), h("div", { class: "v num" + (over ? " bad" : "") }, over)),
+      h("button", { class: "cell go", type: "button", title: "Show overdue tasks", "aria-label": over + " overdue. Show overdue tasks", onclick: () => {
+        setFilter("overdue"); const el = $("listTabs"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      } }, h("div", { class: "label" }, "Overdue"), h("div", { class: "v num" + (over ? " bad" : "") }, over)),
       h("div", { class: "cell" }, h("div", { class: "label" }, "Due today"), h("div", { class: "v num" + (dueToday ? " warn" : "") }, dueToday)),
       h("div", { class: "cell" }, h("div", { class: "label" }, "Done"), h("div", { class: "v num" }, tasks.length - open.length)));
 
@@ -378,14 +381,14 @@
       await addTask(v, tier.value, due.value);
     } }, title, tier, due, addBtn);
 
-    const tabs = h("div", { class: "tabs", role: "group", "aria-label": "Show" },
-      [["open", "Open"], ["all", "All"], ["done", "Done"]].map(([f, l]) =>
-        h("button", { class: "tab", type: "button", "aria-pressed": state.filter === f ? "true" : "false", onclick: () => {
-          state.filter = f; state.justDone.clear(); try { localStorage.setItem("bsd-filter", f); } catch (e) {} render();
-        } }, l)));
+    const tabs = h("div", { class: "tabs", id: "listTabs", role: "group", "aria-label": "Show" },
+      [["open", "Open"], ["overdue", "Overdue"], ["all", "All"], ["done", "Done"]].map(([f, l]) =>
+        h("button", { class: "tab", type: "button", "aria-pressed": state.filter === f ? "true" : "false", onclick: () => setFilter(f) }, l)));
 
     // Groups
-    const vis = tasks.filter((t) => state.filter === "all" ? true : state.filter === "done" ? t.done : (!t.done || state.justDone.has(t.id)));
+    const isOver = (t) => !t.done && t.due && t.due < today;
+    const vis = tasks.filter((t) => state.filter === "all" ? true : state.filter === "done" ? t.done
+      : state.filter === "overdue" ? (isOver(t) || state.justDone.has(t.id)) : (!t.done || state.justDone.has(t.id)));
     const known = new Set(TIERS.map((t) => t.id));
     const groups = TIERS.concat(vis.some((t) => !known.has(t.tier)) ? [{ id: "__other", name: "Other", sub: "" }] : [])
       .map((tr) => ({ tr, items: vis.filter((t) => tr.id === "__other" ? !known.has(t.tier) : t.tier === tr.id).sort(cmp) }))
@@ -395,7 +398,7 @@
           h("span", { class: "count num" }, state.filter === "done" ? items.length + " done" : items.filter((t) => !t.done).length + " open")),
         h("div", { class: "list" }, items.map(taskItem))));
     if (!groups.length) {
-      const msg = state.filter === "done" ? "Nothing ticked off yet." : "No open tasks. Add one above.";
+      const msg = state.filter === "done" ? "Nothing ticked off yet." : state.filter === "overdue" ? "Nothing overdue." : "No open tasks. Add one above.";
       groups.push(h("section", { class: "blk" }, h("div", { class: "list" }, h("div", { class: "empty" }, msg))));
     }
 
