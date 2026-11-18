@@ -145,6 +145,9 @@ section.blk { padding-top: 34px; }
 .row .body { flex: 1; min-width: 0; }
 .row .t { display: block; font-size: 14.5px; font-weight: 500; line-height: 1.45; overflow-wrap: anywhere; cursor: pointer; }
 .row .nt { font-size: 13px; color: var(--ink-mute); margin-top: 2px; }
+.tid { display: block; background: none; border: 0; padding: 0; margin: 1px 0 0; font: inherit; font-size: 11.5px; color: var(--ink-mute); cursor: copy; }
+.tid:hover { color: var(--ink-soft); text-decoration: underline; }
+.fcard .tid { margin-top: -6px; }
 .tlinks { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 12.5px; }
 .tlinks a { display: inline-flex; align-items: center; gap: 4px; }
 .tlinks svg { width: 11px; height: 11px; }

@@ -276,6 +276,14 @@
       await addSubtask(t, v);
     } }, input, h("button", { class: "ghost", type: "submit" }, "Add"));
   }
+  // Short task id (#42) under the title; click copies it for referencing in chat.
+  function taskId(t) {
+    if (t.num == null) return null;
+    const ref = "#" + t.num;
+    return h("button", { class: "tid num", type: "button", title: "Copy task id", "aria-label": "Copy task id " + ref,
+      onclick: async (e) => { e.preventDefault(); e.stopPropagation();
+        try { await navigator.clipboard.writeText(ref); toast("Copied " + ref); } catch { toast(ref); } } }, ref);
+  }
   function taskRow(t, sub) {
     const cid = "chk-" + t.id;
     const cb = h("input", { class: "check", type: "checkbox", id: cid, "aria-label": "Mark done: " + t.title, onchange: () => toggleDone(t) });
@@ -283,7 +291,7 @@
     const count = sub ? null : subCount(t);
     return h("div", { class: "row" + (sub ? " sub" : "") + (t.done ? " is-done" : "") },
       cb,
-      h("div", { class: "body" }, h("label", { class: "t", for: cid }, t.title), t.note ? h("div", { class: "nt" }, t.note) : null, taskLinks(t)),
+      h("div", { class: "body" }, h("label", { class: "t", for: cid }, t.title), taskId(t), t.note ? h("div", { class: "nt" }, t.note) : null, taskLinks(t)),
       h("div", { class: "side" }, count ? h("span", { class: "subcount num", title: "Sub-tasks done" }, count) : null, duePill(t), h("span", { class: "sp" }),
         sub ? null : subBtn(t), sub ? null : starBtn(t), delBtn(t)));
   }
@@ -358,6 +366,7 @@
     const cards = focus.map((t) => h("article", { class: "fcard" },
       h("div", { class: "top" }, h("span", { class: "label" }, tierName(t.tier)), starBtn(t)),
       h("div", { class: "t" }, t.title),
+      taskId(t),
       t.note ? h("div", { class: "nt" }, t.note) : null,
       taskLinks(t),
       subCount(t) ? h("div", { class: "nt" }, subCount(t) + " sub-tasks done") : null,
